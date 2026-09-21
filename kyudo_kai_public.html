@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>会の記録・矢所 2射版</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f5f1;color:#222;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+main{max-width:720px;margin:auto;padding:14px}h1{font-size:24px;margin:8px 0}.note{color:#666;font-size:14px}
+.card{background:#fff;border-radius:18px;padding:16px;margin:13px 0;box-shadow:0 2px 12px #00000012}
+h2{margin:0 0 12px;font-size:21px}h3{font-size:16px;margin:15px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{border:1px solid #aaa;background:#fff;padding:9px 12px;border-radius:999px;font-size:15px}.chip.on{background:#222;color:#fff}
+textarea{width:100%;min-height:58px;padding:10px;font-size:16px;border:1px solid #bbb;border-radius:10px}
+.target{width:min(78vw,320px);height:min(78vw,320px);border:3px solid #222;border-radius:50%;margin:10px auto;position:relative;background:repeating-radial-gradient(circle,#fff 0 11.5%,#222 11.8% 12.6%,#fff 12.9% 24.5%,#222 24.8% 25.6%,#fff 25.9% 37.5%,#222 37.8% 38.6%,#fff 38.9% 49%,#222 49.3% 50.1%,#fff 50.4% 100%)}
+.dot{position:absolute;width:15px;height:15px;border-radius:50%;background:#c62828;border:2px solid white;box-shadow:0 0 0 1px #222;transform:translate(-50%,-50%);pointer-events:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}button,select{font-size:15px;padding:10px 12px;border-radius:11px;border:1px solid #aaa;background:#fff}.save{background:#222;color:#fff;border:0;font-size:17px;padding:13px 18px}
+.arrowHead{display:flex;justify-content:space-between;align-items:center}.done{font-size:13px;color:#267326;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 4px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}.scroll{overflow:auto}
+</style></head>
+<body><main>
+<h1>🏹 会の記録 ― 射の内面と矢所</h1>
+<div class="card" style="margin-top:10px">
+<b>このアプリについて</b>
+<p style="margin-bottom:6px">2射を1組として、射のあとに「会で感じたこと」「離れ」「矢所」を記録するためのシンプルな弓道記録ツールです。</p>
+<div class="note">射の最中に考える項目を増やすのではなく、射後に起きていたことを振り返って記録します。正解を判定するアプリではありません。</div>
+</div>
+<div class="note">記録データはこのブラウザ内に保存されます。端末やブラウザを変えると記録は引き継がれません。必要な記録はCSVで保存してください。</div>
+<h2 id="groupTitle" style="margin-top:18px">第1組（2射）</h2>
+
+<div id="arrow1" class="card"></div>
+<div id="arrow2" class="card"></div>
+
+<div class="card"><div class="row">
+<button class="save" onclick="saveGroup()">2射をまとめて保存</button>
+<button onclick="clearCurrent()">入力をクリア</button>
+</div></div>
+
+<div class="card"><h2>記録</h2><p id="summary">0組・0射</p>
+<div class="scroll"><table><thead><tr><th>組</th><th>射</th><th>会</th><th>離れ</th><th>矢所</th><th>的中</th></tr></thead><tbody id="log"></tbody></table></div>
+<p class="row"><button onclick="undo()">最後の1組を削除</button><button onclick="exportCSV()">CSV保存</button><button onclick="resetAll()">全記録を消去</button></p>
+</div>
+</main>
+<script>
+const FEELS=["静かだった","左右に伸びた","弓の抵抗を感じた","力んだ","早く離したかった","何も感じなかった"];
+const RELS=["自然に出た","自分から離した","詰まった","分からない"];
+let current=[newArrow(),newArrow()];
+let customFeels=JSON.parse(localStorage.getItem("kai_custom_feels")||"[]");
+function allFeels(){return [...FEELS,...customFeels]}
+let groups=JSON.parse(localStorage.getItem("kai2_groups_v2")||"[]");
+function newArrow(){return {feel:[],memo:"",release:"",point:null}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function arrowHTML(i){
+ let n=i+1,a=current[i];
+ return `<div class="arrowHead"><h2>${n}本目</h2><span class="done">${a.point?"矢所入力済":""}</span></div>
+ <h3>会で感じたこと（複数可）</h3><div class="chips">${allFeels().map(x=>`<button class="chip ${a.feel.includes(x)?"on":""}" onclick="toggleFeel(${i},'${x.replaceAll("'","&#39;")}')">${esc(x)}</button>`).join("")}</div>
+ <div class="row" style="margin-top:9px"><input id="custom${i}" placeholder="自分の感覚を追加" style="font-size:15px;padding:9px;border:1px solid #bbb;border-radius:10px;flex:1;min-width:160px"><button onclick="addCustom(${i})">項目追加</button></div>
+ <h3>自由記述</h3><textarea oninput="current[${i}].memo=this.value" placeholder="例：的が気にならなかった">${esc(a.memo)}</textarea>
+ <h3>離れ</h3><div class="chips">${RELS.map(x=>`<button class="chip ${a.release===x?"on":""}" onclick="setRelease(${i},'${x}')">${x}</button>`).join("")}</div>
+ <h3>矢所</h3><div class="target" id="target${i}" onclick="setPoint(event,${i})"></div>
+ <div class="row"><select onchange="setMiss(${i},this.value)"><option value="">的面をタップ</option>${["上に外れ","下に外れ","左に外れ","右に外れ","矢所不明"].map(x=>`<option ${a.point?.miss===x?"selected":""}>${x}</option>`).join("")}</select><button onclick="clearPoint(${i})">矢所取消</button></div>`;
+}
+function renderCurrent(){
+ arrow1.innerHTML=arrowHTML(0);arrow2.innerHTML=arrowHTML(1);
+ current.forEach((a,i)=>{if(a.point&&a.point.x!==undefined){let d=document.createElement("i");d.className="dot";d.style.left=(50+a.point.x*50)+"%";d.style.top=(50+a.point.y*50)+"%";document.getElementById("target"+i).appendChild(d)}})
+}
+function addCustom(i){let el=document.getElementById("custom"+i),x=el.value.trim();if(!x)return;if(!customFeels.includes(x)&&!FEELS.includes(x)){customFeels.push(x);localStorage.setItem("kai_custom_feels",JSON.stringify(customFeels))}if(!current[i].feel.includes(x))current[i].feel.push(x);renderCurrent()}
+function toggleFeel(i,x){let a=current[i];a.feel=a.feel.includes(x)?a.feel.filter(v=>v!==x):[...a.feel,x];renderCurrent()}
+function setRelease(i,x){current[i].release=x;renderCurrent()}
+function setPoint(e,i){let r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/(r.width/2),y=(e.clientY-r.top-r.height/2)/(r.height/2);current[i].point={x:+x.toFixed(3),y:+y.toFixed(3),hit:Math.hypot(x,y)<=1};renderCurrent()}
+function setMiss(i,v){if(v){current[i].point={miss:v,hit:false};renderCurrent()}}
+function clearPoint(i){current[i].point=null;renderCurrent()}
+function clearCurrent(){current=[newArrow(),newArrow()];renderCurrent()}
+function saveGroup(){
+ if(!current[0].point||!current[1].point)return alert("1本目・2本目の矢所を入力してください。");
+ groups.push({group:groups.length+1,date:new Date().toLocaleString("ja-JP"),arrows:JSON.parse(JSON.stringify(current))});
+ localStorage.setItem("kai2_groups_v2",JSON.stringify(groups));clearCurrent();renderLog();scrollTo({top:0,behavior:"smooth"})
+}
+function pos(p){if(p.miss)return p.miss;return "的内 "+(p.x>=0?"右":"左")+(p.y>=0?"下":"上")}
+function renderLog(){
+ groupTitle.textContent=`第${groups.length+1}組（2射）`;
+ let hits=groups.reduce((z,g)=>z+g.arrows.filter(a=>a.point.hit).length,0),shots=groups.length*2;
+ summary.textContent=`${groups.length}組・${shots}射　的中 ${hits}射　的中率 ${shots?Math.round(hits/shots*100):0}%`;
+ log.innerHTML=groups.flatMap(g=>g.arrows.map((a,i)=>`<tr><td>${g.group}</td><td>${i+1}</td><td>${esc([...a.feel,a.memo].filter(Boolean).join("・")||"—")}</td><td>${esc(a.release||"未記録")}</td><td>${esc(pos(a.point))}</td><td>${a.point.hit?"○":"×"}</td></tr>`)).join("");
+}
+function undo(){if(groups.length&&confirm("最後の1組（2射）を削除しますか？")){groups.pop();localStorage.setItem("kai2_groups_v2",JSON.stringify(groups));renderLog()}}
+function resetAll(){if(confirm("保存済みの全記録を消去しますか？")){groups=[];localStorage.setItem("kai2_groups_v2","[]");renderLog()}}
+function exportCSV(){
+ let rows=[["組","射","日時","会の感覚","自由記述","離れ","矢所","的中","x","y"]];
+ groups.forEach(g=>g.arrows.forEach((a,i)=>rows.push([g.group,i+1,g.date,a.feel.join("／"),a.memo,a.release,pos(a.point),a.point.hit?"○":"×",a.point.x??"",a.point.y??""])));
+ let csv=rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+ let b=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="会の記録_2射.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+}
+renderCurrent();renderLog();
+</script></body></html>
